@@ -68,3 +68,59 @@ class SurveySerializer(serializers.ModelSerializer):
                 Answer.objects.create(question=question, **answer_data)
         
         return survey
+
+class SubmitQuizSerializer(serializers.Serializer):
+    """Сериализатор для отправки всех ответов на опрос"""
+    survey_id = serializers.IntegerField()
+    answers = serializers.ListField(
+        child=serializers.DictField(),
+        write_only=True
+    )
+    
+    def validate(self, data):
+        # Пример структуры answers:
+        # [
+        #     {"question_id": 1, "answer_id": 3},
+        #     {"question_id": 2, "answer_id": 5},
+        # ]
+        for answer in data['answers']:
+            if 'question_id' not in answer or 'answer_id' not in answer:
+                raise serializers.ValidationError(
+                    "Каждый ответ должен содержать question_id и answer_id"
+                )
+        return data
+
+class QuizResultSerializer(serializers.ModelSerializer):
+    """Сериализатор для отображения результата"""
+    survey_title = serializers.CharField(source='survey.title', read_only=True)
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    percentage = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = QuizResult
+        fields = ['id', 'user', 'user_name', 'survey', 'survey_title', 
+                 'score', 'total_questions', 'percentage', 'submitted_at']
+    
+    def get_percentage(self, obj):
+        if obj.total_questions > 0:
+            return round((obj.score / obj.total_questions) * 100, 1)
+        return 0
+
+class UserResponseSerializer(serializers.ModelSerializer):
+    """Сериализатор для ответов пользователя"""
+    question_text = serializers.CharField(source='question.question_text', read_only=True)
+    selected_answer_text = serializers.CharField(source='selected_answer.answer_text', read_only=True)
+    correct_answer_text = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserResponse
+        fields = ['question', 'question_text', 'selected_answer', 'selected_answer_text',
+                 'is_correct', 'correct_answer_text']
+    
+    def get_correct_answer_text(self, obj):
+        # Получаем правильный ответ на этот вопрос
+        correct_answer = Answer.objects.filter(
+            question=obj.question, 
+            correct=True
+        ).first()
+        return correct_answer.answer_text if correct_answer else None
