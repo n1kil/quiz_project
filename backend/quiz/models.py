@@ -42,7 +42,7 @@ class QuizResult(models.Model):
     total_questions = models.IntegerField(default=0)
     
     class Meta:
-        ordering = ['-submitted_at']  # новые результаты сверху
+        ordering = ['-submitted_at']  
     
     def __str__(self):
         return f"{self.user.username} - {self.survey.title} - {self.score}/{self.total_questions}"

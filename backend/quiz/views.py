@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from .models import *
 from .serializers import *
 from django.shortcuts import get_object_or_404
@@ -16,7 +16,7 @@ class RegisterUser(APIView):
 
 
 class SurveyListCreate(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request):
         
@@ -56,7 +56,7 @@ class SurveyListCreate(APIView):
         
 
 class SurveyDetail(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     
     def get_object(self, pk):
         survey = get_object_or_404(Survey.objects.prefetch_related('questions__answers'), pk=pk)
@@ -86,7 +86,7 @@ class SurveyDetail(APIView):
 
 class SubmitQuizView(APIView):
     """Отправить все ответы на опрос разом"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]  
     
     def post(self, request):
         serializer = SubmitQuizSerializer(data=request.data)
@@ -104,10 +104,9 @@ class SubmitQuizView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Проверяем, что пользователь ещё не проходил этот опрос
-        # (или разрешим несколько попыток - уберём эту проверку если нужно)
+        # Проверяем, проходил ли уже этот пользователь этот опрос
         existing_result = QuizResult.objects.filter(
-            user=request.user,
+            user=request.user,  # ← Теперь request.user будет реальным пользователем
             survey=survey
         ).exists()
         
@@ -119,11 +118,12 @@ class SubmitQuizView(APIView):
         
         # Создаём запись о результате
         quiz_result = QuizResult.objects.create(
-            user=request.user,
+            user=request.user,  
             survey=survey,
             total_questions=survey.questions.count(),
             score=0
         )
+        
         
         correct_answers = 0
         
@@ -184,7 +184,6 @@ class SurveyResultsView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request, survey_id):
-        # Проверяем, существует ли опрос
         try:
             survey = Survey.objects.get(id=survey_id)
         except Survey.DoesNotExist:
@@ -193,7 +192,6 @@ class SurveyResultsView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Получаем результаты текущего пользователя по этому опросу
         results = QuizResult.objects.filter(
             user=request.user,
             survey=survey
