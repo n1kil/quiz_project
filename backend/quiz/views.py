@@ -19,37 +19,22 @@ class SurveyListCreate(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request):
-        
+        print(f"Authorization header: {request.headers.get('Authorization')}")
         surveys = Survey.objects.all().prefetch_related('questions__answers')
         serializer = SurveySerializer(surveys, many=True)
         return Response(serializer.data)
 
     def post(self, request):
+        print(f"Authorization header: {request.headers.get('Authorization')}")
         print(f"Received data: {request.data}")
-        
+        print(f"User: {request.user}")
         serializer = SurveySerializer(
             data=request.data, 
-            context={'request': request}  
+            context={'request': request}
         )
-        
         if serializer.is_valid():
-            try:
-                print(f"Saving survey: {serializer.validated_data}")
-                
-                
-                survey = serializer.save() 
-                print(f"Created survey by user: {request.user.username}")
-                print(f"Survey author: {survey.author}")
-
-                for question in survey.questions.all():
-                    print(f"Created question: {question.question_text}")
-                    for answer in question.answers.all():
-                        print(f"  Answer: {answer.answer_text} (correct: {answer.correct})")
-                
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            except Exception as e:
-                print(f"Error while saving survey: {e}")
-                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            survey = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             print(f"Serializer errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -89,6 +74,10 @@ class SubmitQuizView(APIView):
     permission_classes = [IsAuthenticated]  
     
     def post(self, request):
+         
+        if not request.user.is_authenticated:
+            return Response({"error": "Вы не авторизованы"}, status=status.HTTP_401_UNAUTHORIZED)
+        
         serializer = SubmitQuizSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -104,9 +93,8 @@ class SubmitQuizView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Проверяем, проходил ли уже этот пользователь этот опрос
         existing_result = QuizResult.objects.filter(
-            user=request.user,  # ← Теперь request.user будет реальным пользователем
+            user=request.user,  
             survey=survey
         ).exists()
         
@@ -116,7 +104,6 @@ class SubmitQuizView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Создаём запись о результате
         quiz_result = QuizResult.objects.create(
             user=request.user,  
             survey=survey,
@@ -127,7 +114,6 @@ class SubmitQuizView(APIView):
         
         correct_answers = 0
         
-        # Обрабатываем каждый ответ пользователя
         for answer_data in answers_data:
             question_id = answer_data['question_id']
             answer_id = answer_data['answer_id']
@@ -136,7 +122,7 @@ class SubmitQuizView(APIView):
                 question = Question.objects.get(id=question_id, survey=survey)
                 selected_answer = Answer.objects.get(id=answer_id, question=question)
                 
-                # Создаём ответ пользователя
+                
                 user_response = UserResponse.objects.create(
                     quiz_result=quiz_result,
                     question=question,
@@ -148,14 +134,13 @@ class SubmitQuizView(APIView):
                     correct_answers += 1
                     
             except (Question.DoesNotExist, Answer.DoesNotExist):
-                # Если вопрос или ответ не найдены - пропускаем
                 continue
         
-        # Обновляем результат
+        
         quiz_result.score = correct_answers
         quiz_result.save()
         
-        # Возвращаем детальный результат
+       
         result_serializer = QuizResultSerializer(quiz_result)
         responses = UserResponse.objects.filter(quiz_result=quiz_result)
         responses_serializer = UserResponseSerializer(responses, many=True)

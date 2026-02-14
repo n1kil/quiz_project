@@ -151,7 +151,7 @@ function CreateQuiz() {
 
     try {
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      const authToken = userData.access;
+      const authToken = localStorage.getItem('token');
 
       if (!authToken) {
         setError('Требуется авторизация для создания викторины');

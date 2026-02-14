@@ -19,7 +19,6 @@ function Header() {
           <h1 style={styles.logoText}>QuizPlatform</h1>
         </Link>
 
-        
         <nav style={styles.nav}>
           <Link to="/" style={styles.navLink}>
             На главную
@@ -47,7 +46,12 @@ function Header() {
             </>
           ) : (
             <div style={styles.profile}>
-              <span style={styles.username}>👤 {username}</span>
+              
+              {/* 🔥 Теперь имя кликабельное */}
+              <Link to="/profile" style={styles.usernameLink}>
+                👤 {username}
+              </Link>
+
               <button onClick={handleLogout} style={styles.logoutButton}>
                 Выйти
               </button>
@@ -107,8 +111,11 @@ const styles = {
     alignItems: 'center',
     gap: '15px',
   },
-  username: {
+  usernameLink: {
     color: 'white',
+    textDecoration: 'none',
+    fontWeight: 'bold',
+    transition: 'opacity 0.3s',
   },
   logoutButton: {
     backgroundColor: '#e74c3c',

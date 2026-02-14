@@ -5,6 +5,7 @@ import Header from '../components/Header';
 function AllQuizzes() {
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,18 +17,50 @@ function AllQuizzes() {
       })
       .catch(error => {
         console.error('Ошибка:', error);
+        setError('Ошибка загрузки викторин');
         setLoading(false);
       });
   }, []);
+
+  // Функция для проверки, прошел ли пользователь викторину
+  const checkIfCompleted = async (surveyId) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/quiz/survey/${surveyId}/results/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при получении результатов');
+      }
+
+      const data = await response.json();
+
+      if (data.length > 0) {
+        // Если результаты есть, перенаправляем на страницу с результатами
+        navigate(`/quiz/survey/${surveyId}/results`);
+      } else {
+        // Если результатов нет, перенаправляем на страницу викторины
+        navigate(`/quiz/${surveyId}`);
+      }
+    } catch (err) {
+      console.error('Ошибка:', err);
+      setError('Ошибка при проверке прохождения викторины');
+    }
+  };
 
   return (
     <>
       <Header />
       <div style={styles.container}>
         <h1>Доступные викторины</h1>
-        
+
         {loading ? (
           <p>Загрузка...</p>
+        ) : error ? (
+          <div style={styles.error}>{error}</div>
         ) : surveys.length === 0 ? (
           <div style={styles.empty}>
             <h3>Нет доступных викторин</h3>
@@ -43,11 +76,11 @@ function AllQuizzes() {
                   <span>Автор: {survey.author_name || 'Аноним'}</span>
                   <span>Вопросов: {survey.questions?.length || 0}</span>
                 </div>
-                <button 
-                  onClick={() => navigate(`/quiz/${survey.id}`)}
+                <button
+                  onClick={() => checkIfCompleted(survey.id)}
                   style={styles.button}
                 >
-                  Пройти викторину
+                  {survey.is_completed ? 'Посмотреть результаты' : 'Пройти викторину'}
                 </button>
               </div>
             ))}
@@ -96,6 +129,13 @@ const styles = {
     cursor: 'pointer',
     width: '100%',
     fontSize: '16px',
+  },
+  error: {
+    color: 'red',
+    textAlign: 'center',
+    padding: '20px',
+    backgroundColor: '#f8d7da',
+    borderRadius: '4px',
   },
 };
 

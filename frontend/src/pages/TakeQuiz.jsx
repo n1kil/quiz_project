@@ -15,36 +15,59 @@ function TakeQuiz() {
   const [submitError, setSubmitError] = useState('');
 
   
-  useEffect(() => {
-    const fetchQuiz = async () => {
-      try {
-        console.log('Загрузка викторины...');
-        const response = await fetch(`http://localhost:8000/api/surveys/${id}/`);
-        
-        if (!response.ok) {
-          throw new Error(`Ошибка ${response.status}`);
+useEffect(() => {
+  const loadQuiz = async () => {
+    try {
+      const token = localStorage.getItem('token');
+
+      // 1️⃣ Сначала проверяем — проходил ли пользователь
+      const resultResponse = await fetch(
+        `http://localhost:8000/api/quiz/survey/${id}/results/`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         }
-        
-        const data = await response.json();
-        console.log('Данные викторины:', data);
-        setQuiz(data);
-        
-        
-        const initialAnswers = {};
-        data.questions?.forEach(question => {
-          initialAnswers[question.id] = null;
-        });
-        setAnswers(initialAnswers);
-      } catch (err) {
-        console.error('Ошибка загрузки:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      );
+
+      if (resultResponse.ok) {
+        const resultData = await resultResponse.json();
+
+        if (resultData.length > 0) {
+          // 🔥 Уже проходил — сразу редиректим
+          navigate(`/quiz/survey/${resultData[0].id}/results/`);
+          return;
+        }
       }
-    };
-    
-    fetchQuiz();
-  }, [id]);
+
+      // 2️⃣ Если НЕ проходил — загружаем викторину
+      const quizResponse = await fetch(
+        `http://localhost:8000/api/surveys/${id}/`
+      );
+
+      if (!quizResponse.ok) {
+        throw new Error("Ошибка загрузки викторины");
+      }
+
+      const quizData = await quizResponse.json();
+      setQuiz(quizData);
+
+      const initialAnswers = {};
+      quizData.questions?.forEach(q => {
+        initialAnswers[q.id] = null;
+      });
+
+      setAnswers(initialAnswers);
+
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadQuiz();
+}, [id, navigate]);
 
   
   const handleAnswerSelect = (questionId, answerId) => {
@@ -105,7 +128,7 @@ function TakeQuiz() {
 
     
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    const authToken = userData.access || userData.token;
+    const authToken = localStorage.getItem('token');
     
     if (!authToken) {
       setSubmitError('Требуется авторизация! Пожалуйста, войдите в систему.');
@@ -163,11 +186,12 @@ function TakeQuiz() {
     console.log('Успешный ответ:', responseData);
     
     // Обработка успешного ответа
-    if (responseData.result_id) {
-      navigate(`/quiz/result/${responseData.result_id}`);
-    } else {
+    if (responseData.result && responseData.result.id) {
+  // Исправленный путь
+  navigate(`/quiz/survey/${responseData.result.survey}/results/`);
+} else {
       setSubmitError(`✅ Викторина завершена! Результат: ${responseData.score || 0} из ${quiz.questions.length}`);
-      setTimeout(() => navigate('/'), 3000);
+      setTimeout(() => navigate('/'), 3000); // Перенаправление на главную страницу
     }
 
   } catch (err) {

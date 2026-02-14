@@ -7,7 +7,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import TakeQuiz from './pages/TakeQuiz';
 import CreateQuiz from './pages/CreateQuiz';
-
+import QuizResult from './pages/QuizResult';  
+import Profile from './pages/Profile';
 
 function HomePage() {
   return <Home />;
@@ -23,6 +24,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/quiz/:id" element={<TakeQuiz />} />
         <Route path="/create-quiz" element={<CreateQuiz />} />
+        <Route path="/quiz/survey/:surveyId/results" element={<QuizResult />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </BrowserRouter>
   );
