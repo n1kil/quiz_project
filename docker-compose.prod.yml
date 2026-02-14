@@ -1,0 +1,16 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: django_prod
+    command: sh -c "pip install -r requirements.txt && python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: react_prod
+    ports:
+      - "80:80"
